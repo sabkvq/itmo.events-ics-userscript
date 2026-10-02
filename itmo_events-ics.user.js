@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ITMO Events → ICS
 // @namespace    vm-itmo-events-ics
-// @version      0.0.2
+// @version      0.0.3
 // @author sabkvq
 // @description  Добавляет кнопку скачивания .ics на страницах ITMO Events
 // @match        https://itmo.events/*
@@ -14,7 +14,11 @@
 (function () {
     'use strict';
 
-    const DEFAULT_DURATION_MINUTES = 120;
+    const DEFAULT_DURATION_MINUTES = 90;
+    const MAX_SLIDER_DURATION_MINUTES = 240;
+    const ALL_DAY_SLIDER_VALUE = 255;
+    let selectedDurationMinutes = DEFAULT_DURATION_MINUTES;
+    let selectedAllDay = false;
     const TIMEZONE = 'Europe/Moscow';
 
     const MONTHS = {
@@ -222,6 +226,48 @@
             hour,
             minute,
         };
+    }
+
+
+    function addDays(parts, days) {
+        const date = new Date(
+            Date.UTC(
+                parts.year,
+                parts.month - 1,
+                parts.day + days
+            )
+        );
+
+        return {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth() + 1,
+            day: date.getUTCDate(),
+            hour: parts.hour,
+            minute: parts.minute,
+        };
+    }
+
+    function formatDateICS(parts) {
+        return (
+            `${parts.year}` +
+            `${pad(parts.month)}` +
+            `${pad(parts.day)}`
+        );
+    }
+
+    function formatDuration(minutes) {
+        if (minutes < 60) {
+            return `${minutes} мин`;
+        }
+
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+
+        if (!rest) {
+            return `${hours} ${hours === 1 ? 'час' : 'часа'}`;
+        }
+
+        return `${hours} ${hours === 1 ? 'час' : 'часа'} ${rest} мин`;
     }
 
     function formatLocalICS(parts) {
@@ -571,10 +617,12 @@
             );
 
         const end =
-            addMinutes(
-                start,
-                DEFAULT_DURATION_MINUTES
-            );
+            selectedAllDay
+                ? addDays(start, 1)
+                : addMinutes(
+                    start,
+                    selectedDurationMinutes
+                );
 
         return {
             title:
@@ -593,6 +641,7 @@
 
             start,
             end,
+            allDay: selectedAllDay,
 
             url:
                 window.location.href,
@@ -618,15 +667,19 @@
 
             `DTSTAMP:${utcTimestamp()}`,
 
-            `DTSTART;TZID=${TIMEZONE}:` +
-                formatLocalICS(
-                    event.start
-                ),
+            event.allDay
+                ? `DTSTART;VALUE=DATE:${formatDateICS(event.start)}`
+                : `DTSTART;TZID=${TIMEZONE}:` +
+                    formatLocalICS(
+                        event.start
+                    ),
 
-            `DTEND;TZID=${TIMEZONE}:` +
-                formatLocalICS(
-                    event.end
-                ),
+            event.allDay
+                ? `DTEND;VALUE=DATE:${formatDateICS(event.end)}`
+                : `DTEND;TZID=${TIMEZONE}:` +
+                    formatLocalICS(
+                        event.end
+                    ),
 
             `SUMMARY:${escapeICS(
                 event.title
@@ -750,14 +803,18 @@
                 );
 
             const start =
-                formatLocalICS(
-                    event.start
-                );
+                event.allDay
+                    ? formatDateICS(event.start)
+                    : formatLocalICS(
+                        event.start
+                    );
 
             const end =
-                formatLocalICS(
-                    event.end
-                );
+                event.allDay
+                    ? formatDateICS(event.end)
+                    : formatLocalICS(
+                        event.end
+                    );
 
             const params =
                 new URLSearchParams({
@@ -893,6 +950,213 @@
         return button;
     }
 
+
+    function createDurationControl() {
+        const root = document.createElement('div');
+
+        root.id = 'vm-duration-control';
+        root.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 48px;
+            padding: 0 14px;
+
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, .92);
+            color: #111111;
+
+            font: inherit;
+            font-size: 13px;
+
+            box-shadow:
+                0 1px 3px rgba(0, 0, 0, .12);
+        `;
+
+        const label = document.createElement('span');
+        label.style.cssText = `
+            min-width: 96px;
+            font-weight: 500;
+            white-space: nowrap;
+        `;
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '15';
+        slider.max = String(ALL_DAY_SLIDER_VALUE);
+        slider.step = '15';
+        slider.value = String(DEFAULT_DURATION_MINUTES);
+        slider.setAttribute('aria-label', 'Длительность мероприятия');
+        slider.style.cssText = `
+            width: 132px;
+            accent-color: #111111;
+            cursor: pointer;
+        `;
+
+        const customButton = document.createElement('button');
+        customButton.type = 'button';
+        customButton.textContent = 'Другое';
+        customButton.style.cssText = `
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #666666;
+            font: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        `;
+
+        const customWrap = document.createElement('div');
+        customWrap.style.cssText = `
+            display: none;
+            align-items: center;
+            gap: 6px;
+        `;
+
+        const customInput = document.createElement('input');
+        customInput.type = 'number';
+        customInput.min = '1';
+        customInput.step = '1';
+        customInput.value = String(DEFAULT_DURATION_MINUTES);
+        customInput.setAttribute('aria-label', 'Своя длительность в минутах');
+        customInput.style.cssText = `
+            width: 64px;
+            height: 30px;
+            padding: 0 8px;
+            border: 1px solid rgba(0, 0, 0, .18);
+            border-radius: 9999px;
+            background: #ffffff;
+            color: #111111;
+            font: inherit;
+            font-size: 13px;
+            outline: none;
+        `;
+
+        const minutesLabel = document.createElement('span');
+        minutesLabel.textContent = 'мин';
+        minutesLabel.style.color = '#666666';
+
+        const backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.textContent = '×';
+        backButton.setAttribute('aria-label', 'Вернуться к ползунку');
+        backButton.style.cssText = `
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: #666666;
+            font: inherit;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+        `;
+
+        function applySliderValue() {
+            const value = Number(slider.value);
+
+            if (value >= ALL_DAY_SLIDER_VALUE) {
+                selectedAllDay = true;
+                label.textContent = 'Весь день';
+                return;
+            }
+
+            selectedAllDay = false;
+            selectedDurationMinutes = Math.min(
+                value,
+                MAX_SLIDER_DURATION_MINUTES
+            );
+            label.textContent =
+                formatDuration(selectedDurationMinutes);
+        }
+
+        function applyCustomValue() {
+            const value = Math.max(
+                1,
+                Math.round(
+                    Number(customInput.value) ||
+                    DEFAULT_DURATION_MINUTES
+                )
+            );
+
+            customInput.value = String(value);
+            selectedAllDay = false;
+            selectedDurationMinutes = value;
+            label.textContent = formatDuration(value);
+        }
+
+        slider.addEventListener(
+            'input',
+            applySliderValue
+        );
+
+        customButton.addEventListener(
+            'click',
+            () => {
+                slider.style.display = 'none';
+                customButton.style.display = 'none';
+                customWrap.style.display = 'inline-flex';
+
+                customInput.value =
+                    String(selectedDurationMinutes);
+
+                customInput.focus();
+                customInput.select();
+
+                applyCustomValue();
+            }
+        );
+
+        customInput.addEventListener(
+            'input',
+            applyCustomValue
+        );
+
+        backButton.addEventListener(
+            'click',
+            () => {
+                customWrap.style.display = 'none';
+                slider.style.display = '';
+                customButton.style.display = '';
+
+                const rounded =
+                    Math.max(
+                        15,
+                        Math.min(
+                            MAX_SLIDER_DURATION_MINUTES,
+                            Math.round(
+                                selectedDurationMinutes / 15
+                            ) * 15
+                        )
+                    );
+
+                slider.value = String(rounded);
+                applySliderValue();
+            }
+        );
+
+        customWrap.append(
+            customInput,
+            minutesLabel,
+            backButton
+        );
+
+        root.append(
+            label,
+            slider,
+            customButton,
+            customWrap
+        );
+
+        applySliderValue();
+
+        return root;
+    }
+
     function createButtons() {
         if (
             document.querySelector(
@@ -956,6 +1220,13 @@
             gap: 8px;
             flex-wrap: wrap;
         `;
+
+        const durationControl =
+            createDurationControl();
+
+        wrapper.appendChild(
+            durationControl
+        );
 
         const googleButton =
             makeButton(
