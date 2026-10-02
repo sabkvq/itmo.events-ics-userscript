@@ -1,2 +1,123 @@
-# itmo.events-ics-userscript
-Userscript adds button to download ics from events (with name, date, time and place)
+# ITMO Events → Calendar userscript
+
+Userscript для сайта [itmo.events](https://itmo.events/), который добавляет на страницу мероприятия кнопки для:
+
+- добавления события в Google Calendar;
+- скачивания события в формате `.ics`.
+
+Скрипт автоматически собирает со страницы:
+
+- название события;
+- дату и время;
+- место проведения;
+- описание;
+- контактных лиц;
+- ссылку на страницу мероприятия.
+
+## Установка
+
+### 1. Установите Violentmonkey
+
+Установите расширение **Violentmonkey** для вашего браузера.
+
+Официальный сайт:
+
+https://violentmonkey.github.io/
+
+Violentmonkey доступен для Chrome, Chromium-браузеров и Firefox.
+
+### 2. Установите userscript
+
+После установки Violentmonkey откройте эту ссылку:
+
+https://github.com/sabkvq/itmo.events-ics-userscript/raw/refs/heads/main/itmo_events-ics.user.js
+
+Violentmonkey должен автоматически открыть страницу установки userscript.
+
+Нажмите **Install / Установить**.
+
+### 3. Откройте мероприятие на ITMO Events
+
+Перейдите на любую страницу мероприятия:
+
+https://itmo.events/
+
+На странице события рядом со стандартными кнопками должны появиться:
+
+- **📅 Google** — открыть создание события в Google Calendar с уже заполненными данными;
+- **⬇️ .ics** — скачать календарный файл, который можно открыть в Apple Calendar, Outlook, Thunderbird и других календарях.
+
+## Обновление
+
+Если в userscript включена стандартная проверка обновлений Violentmonkey, новые версии могут устанавливаться автоматически.
+
+Также скрипт всегда можно переустановить вручную, снова открыв:
+
+https://github.com/sabkvq/itmo.events-ics-userscript/raw/refs/heads/main/itmo_events-ics.user.js
+
+## Если кнопки не появились
+
+Проверьте:
+
+1. Violentmonkey установлен и включён.
+2. Userscript включён в Violentmonkey.
+3. Вы находитесь на странице `https://itmo.events/`.
+4. Обновите страницу после установки скрипта.
+
+Если сайт ITMO Events изменит разметку страниц, userscript может потребовать обновления.
+
+## Что попадает в календарь
+
+Для события используются данные со страницы ITMO Events:
+
+**Название**  
+Название мероприятия.
+
+**Дата и время**  
+Время начала события. Если время окончания на странице не указано, используется стандартная длительность события, заданная в userscript.
+
+**Место**  
+Название площадки и адрес из секции «Место проведения».
+
+Например:
+
+```text
+Портал в Яндекс, Кронверкский пр., д.49
+```
+
+**Описание**  
+В описание календарного события добавляются:
+
+- текст из секции «О событии»;
+- контактные лица и их email;
+- ссылка на исходную страницу ITMO Events.
+
+## Часовой пояс
+
+События создаются с часовым поясом:
+
+```text
+Europe/Moscow
+```
+
+Это соответствует времени мероприятий ITMO в Санкт-Петербурге.
+
+## Совместимость
+
+Скрипт предназначен для:
+
+```text
+https://itmo.events/*
+```
+
+Протестирован прежде всего с Violentmonkey.
+
+## Исходный userscript
+
+Прямая ссылка для установки:
+
+https://github.com/sabkvq/itmo.events-ics-userscript/raw/refs/heads/main/itmo_events-ics.user.js
+
+Репозиторий:
+
+https://github.com/sabkvq/itmo.events-ics-userscript
